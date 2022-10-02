@@ -13,6 +13,7 @@ db_object! {
         pub uuid: String,
         pub name: String,
         pub billing_email: String,
+        pub identifier: Option<String>,
         pub private_key: Option<String>,
         pub public_key: Option<String>,
     }
@@ -134,13 +135,14 @@ impl Organization {
             billing_email,
             private_key,
             public_key,
+            identifier: None,
         }
     }
     // https://github.com/bitwarden/server/blob/13d1e74d6960cf0d042620b72d85bf583a4236f7/src/Api/Models/Response/Organizations/OrganizationResponseModel.cs
     pub fn to_json(&self) -> Value {
         json!({
             "Id": self.uuid,
-            "Identifier": null, // not supported by us
+            "Identifier": self.identifier,
             "Name": self.name,
             "Seats": 10, // The value doesn't matter, we don't check server-side
             // "MaxAutoscaleSeats": null, // The value doesn't matter, we don't check server-side
@@ -152,9 +154,6 @@ impl Organization {
             "UseGroups": CONFIG.org_groups_enabled(),
             "UseTotp": true,
             "UsePolicies": true,
-            // "UseScim": false, // Not supported (Not AGPLv3 Licensed)
-            "UseSso": false, // Not supported
-            // "UseKeyConnector": false, // Not supported
             "SelfHost": true,
             "UseApi": false, // Not supported
             "HasPublicAndPrivateKeys": self.private_key.is_some() && self.public_key.is_some(),
@@ -282,6 +281,15 @@ impl Organization {
         }}
     }
 
+    pub async fn find_by_identifier(identifier: &str, conn: &DbConn) -> Option<Self> {
+        db_run! { conn: {
+            organizations::table
+                .filter(organizations::identifier.eq(identifier))
+                .first::<OrganizationDb>(conn)
+                .ok().from_db()
+        }}
+    }
+
     pub async fn get_all(conn: &mut DbConn) -> Vec<Self> {
         db_run! { conn: {
             organizations::table.load::<OrganizationDb>(conn).expect("Error loading organizations").from_db()
@@ -311,9 +319,14 @@ impl UserOrganization {
             "UseApi": false, // Not supported
             "SelfHost": true,
             "HasPublicAndPrivateKeys": org.private_key.is_some() && org.public_key.is_some(),
-            "ResetPasswordEnrolled": false, // Not supported
-            "SsoBound": false, // Not supported
-            "UseSso": false, // Not supported
+            "ResetPasswordEnrolled": false, // not supported by us
+            "SsoBound": true,
+            "UseSso": true,
+            // TODO: Add support for Business Portal
+            // Upstream is moving Policies and SSO management outside of the web-vault to /portal
+            // For now they still have that code also in the web-vault, but they will remove it at some point.
+            // https://github.com/bitwarden/server/tree/master/bitwarden_license/src/
+            "UseBusinessPortal": false, // Disable BusinessPortal Button
             "ProviderId": null,
             "ProviderName": null,
             // "KeyConnectorEnabled": false,
