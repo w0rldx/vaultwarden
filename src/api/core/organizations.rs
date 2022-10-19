@@ -387,6 +387,20 @@ async fn get_organization_sso(org_id: String, _headers: OwnerHeaders, conn: DbCo
         }
         None => err!("Can't find organization sso config"),
     }
+
+    //TODO: Fix SSO Model. Need to look like this:
+    /*
+    enabled: boolean;
+    data: {
+            authority: string;
+            clientId: string;
+            clientSecret: string;
+          };
+    urls: {
+            signInCallbackPath: string;
+            signedOutCallbackPath: string;
+          };
+     */
 }
 
 #[post("/organizations/<org_id>/sso", data = "<data>")]
