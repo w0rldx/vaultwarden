@@ -719,29 +719,37 @@ fn _check_is_some<T>(value: &Option<T>, msg: &str) -> EmptyResult {
 async fn prevalidate(domainHint: String, conn: DbConn) -> JsonResult {
     let empty_result = json!({});
 
-    // TODO: fix panic on failig to retrive (no unwrap on null)
-    let organization = Organization::find_by_identifier(&domainHint, &conn).await.unwrap();
+    let organization = Organization::find_by_identifier(&domainHint, &conn);
+    match organization.await {
+        Some(organization) => {
+            let sso_config = SsoConfig::find_by_org(&organization.uuid, &conn);
+            match sso_config.await {
+                Some(sso_config) => {
+                    if !sso_config.use_sso {
+                        return err_code!("SSO Not allowed for organization", Status::BadRequest.code);
+                    }
+                    if sso_config.authority.is_none()
+                        || sso_config.client_id.is_none()
+                        || sso_config.client_secret.is_none()
+                    {
+                        return err_code!("Organization is incorrectly configured for SSO", Status::BadRequest.code);
+                    }
+                }
+                None => {
+                    return err_code!("Unable to find sso config", Status::BadRequest.code);
+                }
+            }
 
-    let sso_config = SsoConfig::find_by_org(&organization.uuid, &conn);
-    match sso_config.await {
-        Some(sso_config) => {
-            if !sso_config.use_sso {
-                return err_code!("SSO Not allowed for organization", Status::BadRequest.code);
+            if domainHint.is_empty() {
+                return err_code!("No Organization Identifier Provided", Status::BadRequest.code);
             }
-            if sso_config.authority.is_none() || sso_config.client_id.is_none() || sso_config.client_secret.is_none() {
-                return err_code!("Organization is incorrectly configured for SSO", Status::BadRequest.code);
-            }
+
+            Ok(Json(empty_result))
         }
         None => {
-            return err_code!("Unable to find sso config", Status::BadRequest.code);
+            return err_code!("Unable to find organization with identifier", Status::BadRequest.code);
         }
     }
-
-    if domainHint.is_empty() {
-        return err_code!("No Organization Identifier Provided", Status::BadRequest.code);
-    }
-
-    Ok(Json(empty_result))
 }
 
 use openidconnect::core::{CoreClient, CoreProviderMetadata, CoreResponseType};
@@ -758,19 +766,19 @@ async fn get_client_from_sso_config(sso_config: &SsoConfig) -> Result<CoreClient
     let issuer_url =
         IssuerUrl::new(sso_config.authority.as_ref().unwrap().to_string()).or(Err("invalid issuer URL"))?;
 
-    // TODO: This comparison will fail if one URI has a trailing slash and the other one does not.
-    // Should we remove trailing slashes when saving? Or when checking?
-    let provider_metadata = match CoreProviderMetadata::discover_async(issuer_url, async_http_client).await {
-        Ok(metadata) => metadata,
+    // TODO: fail if URI has a trailing slash and other not.
+    let provider_metadata = CoreProviderMetadata::discover_async(issuer_url, async_http_client);
+    match provider_metadata.await {
+        Ok(provider_metadata) => {
+            let client = CoreClient::from_provider_metadata(provider_metadata, client_id, Some(client_secret))
+                .set_redirect_uri(RedirectUrl::new(redirect).or(Err("Invalid redirect URL"))?);
+
+            Ok(client)
+        }
         Err(_err) => {
             return Err("Failed to discover OpenID provider");
         }
-    };
-
-    let client = CoreClient::from_provider_metadata(provider_metadata, client_id, Some(client_secret))
-        .set_redirect_uri(RedirectUrl::new(redirect).or(Err("Invalid redirect URL"))?);
-
-    Ok(client)
+    }
 }
 
 #[get("/connect/authorize?<domain_hint>&<state>")]
@@ -778,7 +786,8 @@ async fn authorize(domain_hint: String, state: String, conn: DbConn) -> ApiResul
     let organization = Organization::find_by_identifier(&domain_hint, &conn).await.unwrap();
     let sso_config = SsoConfig::find_by_org(&organization.uuid, &conn).await.unwrap();
 
-    match get_client_from_sso_config(&sso_config).await {
+    let client = get_client_from_sso_config(&sso_config);
+    match client.await {
         Ok(client) => {
             let (mut authorize_url, _csrf_state, nonce) = client
                 .authorize_url(

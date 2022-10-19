@@ -167,8 +167,8 @@ impl Organization {
             "BusinessTaxNumber": null,
 
             "BillingEmail": self.billing_email,
-            "Plan": "TeamsAnnually",
-            "PlanType": 5, // TeamsAnnually plan
+            "Plan": "EnterpriseAnnually",
+            "PlanType": 11, // Enterprise Annually
             "UsersGetPremium": true,
             "Object": "organization",
         })
@@ -304,7 +304,7 @@ impl UserOrganization {
         // https://github.com/bitwarden/server/blob/13d1e74d6960cf0d042620b72d85bf583a4236f7/src/Api/Models/Response/ProfileOrganizationResponseModel.cs
         json!({
             "Id": self.org_uuid,
-            "Identifier": null, // Not supported
+            "Identifier": org.identifier, // Not supported
             "Name": org.name,
             "Seats": 10, // The value doesn't matter, we don't check server-side
             "MaxCollections": 10, // The value doesn't matter, we don't check server-side
@@ -326,7 +326,7 @@ impl UserOrganization {
             // Upstream is moving Policies and SSO management outside of the web-vault to /portal
             // For now they still have that code also in the web-vault, but they will remove it at some point.
             // https://github.com/bitwarden/server/tree/master/bitwarden_license/src/
-            "UseBusinessPortal": false, // Disable BusinessPortal Button
+            "UseBusinessPortal": true, // Disable BusinessPortal Button
             "ProviderId": null,
             "ProviderName": null,
             // "KeyConnectorEnabled": false,

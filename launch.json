@@ -10,17 +10,8 @@
       "request": "launch",
       "program": "${workspaceRoot}/target/debug/vaultwarden.exe",
       "args": [],
-      "stopAtEntry": false,
       "cwd": "${workspaceRoot}/target/debug/",
       "sourceLanguages": ["rust"]
-    },
-    {
-      "name": "(OSX) Launch",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${workspaceRoot}/target/release/vaultwarden.exe",
-      "args": [],
-      "cwd": "${workspaceRoot}"
     }
   ]
 }
