@@ -717,8 +717,6 @@ fn _check_is_some<T>(value: &Option<T>, msg: &str) -> EmptyResult {
 // as expected. All errors appear to be reachable, as is the Ok response.
 #[allow(unreachable_code)]
 async fn prevalidate(domainHint: String, conn: DbConn) -> JsonResult {
-    let empty_result = json!({});
-
     let organization = Organization::find_by_identifier(&domainHint, &conn);
     match organization.await {
         Some(organization) => {
@@ -744,11 +742,49 @@ async fn prevalidate(domainHint: String, conn: DbConn) -> JsonResult {
                 return err_code!("No Organization Identifier Provided", Status::BadRequest.code);
             }
 
-            Ok(Json(empty_result))
+            let token = SsoToken::new(&organization.uuid, &domainHint);
+            Ok(Json(json!({"token": token.to_token()})))
         }
         None => {
             return err_code!("Unable to find organization with identifier", Status::BadRequest.code);
         }
+    }
+}
+
+#[derive(Debug, Clone, Default, FromForm)]
+#[allow(non_snake_case)]
+struct SsoToken {
+    #[field(name = uncased("prefix"))]
+    prefix: String,
+    #[field(name = uncased("identifier"))]
+    identifier: String,
+    #[field(name = uncased("organization_id"))]
+    #[field(name = uncased("organizationid"))]
+    organization_id: String,
+    #[field(name = uncased("domain_hint"))]
+    #[field(name = uncased("domainhint"))]
+    domain_hint: String,
+}
+
+impl SsoToken{
+    fn new(organization_id: &str, domain_hint: &str) -> SsoToken {
+        let prefix = "BWUserPrefix_".to_string();
+        let identifier = "ssoToken".to_string();
+        let organization_id = organization_id.to_string();
+        let domain_hint = domain_hint.to_string();
+
+        SsoToken {
+            prefix,
+            identifier,
+            organization_id,
+            domain_hint,
+        }
+    }
+
+    fn to_token(&self) -> String {
+        let token_data =
+            format!("{}{}-{}-{}", self.prefix, self.organization_id, self.domain_hint, self.identifier);
+        token_data
     }
 }
 
