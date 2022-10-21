@@ -112,11 +112,21 @@ struct OrganizationUpdateData {
     Identifier: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default, FromForm)]
 #[allow(non_snake_case)]
-struct OrganizationSsoUpdateData {
-    Enabled: Option<bool>,
-    Data: Option<SsoOrganizationData>,
+struct OrganizationOpenIdUpdateData {
+    #[serde(rename(deserialize = "useSso"))]
+    use_sso: bool,
+    #[serde(rename(deserialize = "callbackPath"))]
+    callback_path: String,
+    #[serde(rename(deserialize = "signedOutCallbackPath"))]
+    signed_out_callback_path: String,
+    #[serde(rename(deserialize = "authority"))]
+    authority: String,
+    #[serde(rename(deserialize = "clientId"))]
+    client_id: String,
+    #[serde(rename(deserialize = "clientSecret"))]
+    client_secret: String,
 }
 
 #[derive(Deserialize)]
@@ -177,45 +187,6 @@ struct NewCollectionGroupData {
   }
 }
 */
-
-#[derive(Deserialize, Debug)]
-#[allow(non_snake_case)]
-struct SsoOrganizationData {
-    // authority: Option<String>,
-    // clientId: Option<String>,
-    // clientSecret: Option<String>,
-    AcrValues: Option<String>,
-    AdditionalEmailClaimTypes: Option<String>,
-    AdditionalNameClaimTypes: Option<String>,
-    AdditionalScopes: Option<String>,
-    AdditionalUserIdClaimTypes: Option<String>,
-    Authority: Option<String>,
-    ClientId: Option<String>,
-    ClientSecret: Option<String>,
-    ConfigType: Option<String>,
-    ExpectedReturnAcrValue: Option<String>,
-    GetClaimsFromUserInfoEndpoint: Option<bool>,
-    IdpAllowUnsolicitedAuthnResponse: Option<bool>,
-    IdpArtifactResolutionServiceUrl: Option<String>,
-    IdpBindingType: Option<u8>,
-    IdpDisableOutboundLogoutRequests: Option<bool>,
-    IdpEntityId: Option<String>,
-    IdpOutboundSigningAlgorithm: Option<String>,
-    IdpSingleLogoutServiceUrl: Option<String>,
-    IdpSingleSignOnServiceUrl: Option<String>,
-    IdpWantAuthnRequestsSigned: Option<bool>,
-    IdpX509PublicCert: Option<String>,
-    KeyConnectorUrlY: Option<String>,
-    KeyConnectorEnabled: Option<bool>,
-    MetadataAddress: Option<String>,
-    RedirectBehavior: Option<String>,
-    SpMinIncomingSigningAlgorithm: Option<String>,
-    SpNameIdFormat: Option<u8>,
-    SpOutboundSigningAlgorithm: Option<String>,
-    SpSigningBehavior: Option<u8>,
-    SpValidateCertificates: Option<bool>,
-    SpWantAssertionsSigned: Option<bool>,
-}
 
 #[derive(Deserialize)]
 #[allow(non_snake_case)]
@@ -387,117 +358,29 @@ async fn get_organization_sso(org_id: String, _headers: OwnerHeaders, conn: DbCo
         }
         None => err!("Can't find organization sso config"),
     }
-
-    //TODO: Fix SSO Model. Need to look like this:
-    /*
-    enabled: boolean;
-    data: {
-            authority: string;
-            clientId: string;
-            clientSecret: string;
-          };
-    urls: {
-            signInCallbackPath: string;
-            signedOutCallbackPath: string;
-          };
-     */
 }
 
 #[post("/organizations/<org_id>/sso", data = "<data>")]
 async fn put_organization_sso(
     org_id: String,
     _headers: OwnerHeaders,
-    data: JsonUpcase<OrganizationSsoUpdateData>,
+    data: Json<OrganizationOpenIdUpdateData>,
     conn: DbConn,
 ) -> JsonResult {
-    let p: OrganizationSsoUpdateData = data.into_inner().data;
-    let d: SsoOrganizationData = p.Data.unwrap();
-
-    // TODO remove after debugging
-    println!(
-        "
-    p.Enabled: {:?},
-    d.AcrValues: {:?},
-    d.AdditionalEmailClaimTypes: {:?},
-    d.AdditionalNameClaimTypes: {:?},
-    d.AdditionalScopes: {:?},
-    d.AdditionalUserIdClaimTypes: {:?},
-    d.Authority: {:?},
-    d.ClientId: {:?},
-    d.ClientSecret: {:?},
-    d.ConfigType: {:?},
-    d.ExpectedReturnAcrValue: {:?},
-    d.GetClaimsFromUserInfoEndpoint: {:?},
-    d.IdpAllowUnsolicitedAuthnResponse: {:?},
-    d.IdpArtifactResolutionServiceUrl: {:?},
-    d.IdpBindingType: {:?},
-    d.IdpDisableOutboundLogoutRequests: {:?},
-    d.IdpEntityId: {:?},
-    d.IdpOutboundSigningAlgorithm: {:?},
-    d.IdpSingleLogoutServiceUrl: {:?},
-    d.IdpSingleSignOnServiceUrl: {:?},
-    d.IdpWantAuthnRequestsSigned: {:?},
-    d.IdpX509PublicCert: {:?},
-    d.KeyConnectorUrlY: {:?},
-    d.KeyConnectorEnabled: {:?},
-    d.MetadataAddress: {:?},
-    d.RedirectBehavior: {:?},
-    d.SpMinIncomingSigningAlgorithm: {:?},
-    d.SpNameIdFormat: {:?},
-    d.SpOutboundSigningAlgorithm: {:?},
-    d.SpSigningBehavior: {:?},
-    d.SpValidateCertificates: {:?},
-    d.SpWantAssertionsSigned: {:?}",
-        p.Enabled.unwrap_or_default(),
-        d.AcrValues,
-        d.AdditionalEmailClaimTypes,
-        d.AdditionalNameClaimTypes,
-        d.AdditionalScopes,
-        d.AdditionalUserIdClaimTypes,
-        d.Authority,
-        d.ClientId,
-        d.ClientSecret,
-        d.ConfigType,
-        d.ExpectedReturnAcrValue,
-        d.GetClaimsFromUserInfoEndpoint,
-        d.IdpAllowUnsolicitedAuthnResponse,
-        d.IdpArtifactResolutionServiceUrl,
-        d.IdpBindingType,
-        d.IdpDisableOutboundLogoutRequests,
-        d.IdpEntityId,
-        d.IdpOutboundSigningAlgorithm,
-        d.IdpSingleLogoutServiceUrl,
-        d.IdpSingleSignOnServiceUrl,
-        d.IdpWantAuthnRequestsSigned,
-        d.IdpX509PublicCert,
-        d.KeyConnectorUrlY,
-        d.KeyConnectorEnabled,
-        d.MetadataAddress,
-        d.RedirectBehavior,
-        d.SpMinIncomingSigningAlgorithm,
-        d.SpNameIdFormat,
-        d.SpOutboundSigningAlgorithm,
-        d.SpSigningBehavior,
-        d.SpValidateCertificates,
-        d.SpWantAssertionsSigned
-    );
+    let p: OrganizationOpenIdUpdateData = data.into_inner();
 
     let mut sso_config = match SsoConfig::find_by_org(&org_id, &conn).await {
         Some(sso_config) => sso_config,
         None => SsoConfig::new(org_id),
     };
 
-    sso_config.use_sso = p.Enabled.unwrap_or_default();
+    sso_config.use_sso = p.use_sso;
+    sso_config.callback_path = p.callback_path.to_string(); //data.CallbackPath;
+    sso_config.signed_out_callback_path = p.signed_out_callback_path.to_string(); //data2.Data.unwrap().call
 
-    // let sso_config_data = data.Data.unwrap();
-
-    // TODO use real values
-    sso_config.callback_path = "http://localhost:8000/#/sso".to_string(); //data.CallbackPath;
-    sso_config.signed_out_callback_path = "http://localhost:8000/#/sso".to_string(); //data2.Data.unwrap().call
-
-    sso_config.authority = d.Authority;
-    sso_config.client_id = d.ClientId;
-    sso_config.client_secret = d.ClientSecret;
+    sso_config.authority = Option::from(p.authority.to_string());
+    sso_config.client_id = Option::from(p.client_id.to_string());
+    sso_config.client_secret = Option::from(p.client_secret.to_string());
 
     sso_config.save(&conn).await?;
     Ok(Json(sso_config.to_json()))
