@@ -39,7 +39,6 @@ impl SsoConfig {
 
     pub fn to_json(&self) -> Value {
         json!({
-            "Id": self.uuid,
             "UseSso": self.use_sso,
             "CallbackPath": self.callback_path,
             "SignedOutCallbackPath": self.signed_out_callback_path,
