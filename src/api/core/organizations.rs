@@ -144,50 +144,6 @@ struct NewCollectionGroupData {
     ReadOnly: bool,
 }
 
-/*
- From Bitwarden Entreprise
-
-
-
-
-{
-  "enabled": false,
-  "data": {
-    "acrValues": "requested authentication context class",
-    "additionalEmailClaimTypes": "additinaional email",
-    "additionalNameClaimTypes": "additioonal name claim tyeps",
-    "additionalScopes": "additonal scopes",
-    "additionalUserIdClaimTypes": "additoal userid",
-    "authority": "authority",
-    "clientId": "clientid",
-    "clientSecret": "clientsecrte",
-    "configType": 1,
-    "expectedReturnAcrValue": "expectde acr",
-    "getClaimsFromUserInfoEndpoint": true,
-    "idpAllowUnsolicitedAuthnResponse": false,
-    "idpArtifactResolutionServiceUrl": null,
-    "idpBindingType": 1,
-    "idpDisableOutboundLogoutRequests": false,
-    "idpEntityId": null,
-    "idpOutboundSigningAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
-    "idpSingleLogoutServiceUrl": null,
-    "idpSingleSignOnServiceUrl": null,
-    "idpWantAuthnRequestsSigned": false
-    "idpX509PublicCert": null,
-    "keyConnectorEnabled": false,
-    "keyConnectorUrl": null,
-    "metadataAddress": "metadata adress",
-    "redirectBehavior": 1,
-    "spMinIncomingSigningAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
-    "spNameIdFormat": 7,
-    "spOutboundSigningAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
-    "spSigningBehavior": 0,
-    "spValidateCertificates": false,
-    "spWantAssertionsSigned": false,
-  }
-}
-*/
-
 #[derive(Deserialize)]
 #[allow(non_snake_case)]
 struct OrgKeyData {

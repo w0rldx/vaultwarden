@@ -154,6 +154,9 @@ impl Organization {
             "UseGroups": CONFIG.org_groups_enabled(),
             "UseTotp": true,
             "UsePolicies": true,
+            // "UseScim": false, // Not supported (Not AGPLv3 Licensed)
+            "UseSso": true,
+            // "UseKeyConnector": false, // Not supported
             "SelfHost": true,
             "UseApi": false, // Not supported
             "HasPublicAndPrivateKeys": self.private_key.is_some() && self.public_key.is_some(),
@@ -304,7 +307,7 @@ impl UserOrganization {
         // https://github.com/bitwarden/server/blob/13d1e74d6960cf0d042620b72d85bf583a4236f7/src/Api/Models/Response/ProfileOrganizationResponseModel.cs
         json!({
             "Id": self.org_uuid,
-            "Identifier": org.identifier, // Not supported
+            "Identifier": org.identifier,
             "Name": org.name,
             "Seats": 10, // The value doesn't matter, we don't check server-side
             "MaxCollections": 10, // The value doesn't matter, we don't check server-side
@@ -320,13 +323,9 @@ impl UserOrganization {
             "SelfHost": true,
             "HasPublicAndPrivateKeys": org.private_key.is_some() && org.public_key.is_some(),
             "ResetPasswordEnrolled": false, // not supported by us
-            "SsoBound": true,
+            "SsoBound": false, // not supported by us
             "UseSso": true,
-            // TODO: Add support for Business Portal
-            // Upstream is moving Policies and SSO management outside of the web-vault to /portal
-            // For now they still have that code also in the web-vault, but they will remove it at some point.
-            // https://github.com/bitwarden/server/tree/master/bitwarden_license/src/
-            "UseBusinessPortal": true, // Disable BusinessPortal Button
+            "UseBusinessPortal": false, // Disable BusinessPortal Button
             "ProviderId": null,
             "ProviderName": null,
             // "KeyConnectorEnabled": false,
