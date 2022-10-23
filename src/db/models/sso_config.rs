@@ -7,9 +7,9 @@ use super::Organization;
 
 db_object! {
     #[derive(Identifiable, Queryable, Insertable, Associations, AsChangeset)]
-    #[table_name = "sso_config"]
-    #[belongs_to(Organization, foreign_key = "org_uuid")]
-    #[primary_key(uuid)]
+    #[diesel(table_name = sso_config)]
+    #[diesel(belongs_to(Organization, foreign_key = org_uuid))]
+    #[diesel(primary_key(uuid))]
     pub struct SsoConfig {
         pub uuid: String,
         pub org_uuid: String,
