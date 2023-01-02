@@ -4,10 +4,13 @@ use serde_json::Value;
 use yubico::{config::Config, verify};
 
 use crate::{
-    api::{core::two_factor::_generate_recover_code, EmptyResult, JsonResult, JsonUpcase, PasswordData},
-    auth::Headers,
+    api::{
+        core::{log_user_event, two_factor::_generate_recover_code},
+        EmptyResult, JsonResult, JsonUpcase, PasswordData,
+    },
+    auth::{ClientIp, Headers},
     db::{
-        models::{TwoFactor, TwoFactorType},
+        models::{EventType, TwoFactor, TwoFactorType},
         DbConn,
     },
     error::{Error, MapResult},
@@ -64,14 +67,16 @@ fn get_yubico_credentials() -> Result<(String, String), Error> {
     }
 }
 
-fn verify_yubikey_otp(otp: String) -> EmptyResult {
+async fn verify_yubikey_otp(otp: String) -> EmptyResult {
     let (yubico_id, yubico_secret) = get_yubico_credentials()?;
 
     let config = Config::default().set_client_id(yubico_id).set_key(yubico_secret);
 
     match CONFIG.yubico_server() {
-        Some(server) => verify(otp, config.set_api_hosts(vec![server])),
-        None => verify(otp, config),
+        Some(server) => {
+            tokio::task::spawn_blocking(move || verify(otp, config.set_api_hosts(vec![server]))).await.unwrap()
+        }
+        None => tokio::task::spawn_blocking(move || verify(otp, config)).await.unwrap(),
     }
     .map_res("Failed to verify OTP")
     .and(Ok(()))
@@ -113,7 +118,12 @@ async fn generate_yubikey(data: JsonUpcase<PasswordData>, headers: Headers, mut 
 }
 
 #[post("/two-factor/yubikey", data = "<data>")]
-async fn activate_yubikey(data: JsonUpcase<EnableYubikeyData>, headers: Headers, mut conn: DbConn) -> JsonResult {
+async fn activate_yubikey(
+    data: JsonUpcase<EnableYubikeyData>,
+    headers: Headers,
+    mut conn: DbConn,
+    ip: ClientIp,
+) -> JsonResult {
     let data: EnableYubikeyData = data.into_inner().data;
     let mut user = headers.user;
 
@@ -144,7 +154,7 @@ async fn activate_yubikey(data: JsonUpcase<EnableYubikeyData>, headers: Headers,
             continue;
         }
 
-        verify_yubikey_otp(yubikey.to_owned()).map_res("Invalid Yubikey OTP provided")?;
+        verify_yubikey_otp(yubikey.to_owned()).await.map_res("Invalid Yubikey OTP provided")?;
     }
 
     let yubikey_ids: Vec<String> = yubikeys.into_iter().map(|x| (x[..12]).to_owned()).collect();
@@ -159,6 +169,8 @@ async fn activate_yubikey(data: JsonUpcase<EnableYubikeyData>, headers: Headers,
 
     _generate_recover_code(&mut user, &mut conn).await;
 
+    log_user_event(EventType::UserUpdated2fa as i32, &user.uuid, headers.device.atype, &ip.ip, &mut conn).await;
+
     let mut result = jsonify_yubikeys(yubikey_metadata.Keys);
 
     result["Enabled"] = Value::Bool(true);
@@ -169,11 +181,16 @@ async fn activate_yubikey(data: JsonUpcase<EnableYubikeyData>, headers: Headers,
 }
 
 #[put("/two-factor/yubikey", data = "<data>")]
-async fn activate_yubikey_put(data: JsonUpcase<EnableYubikeyData>, headers: Headers, conn: DbConn) -> JsonResult {
-    activate_yubikey(data, headers, conn).await
+async fn activate_yubikey_put(
+    data: JsonUpcase<EnableYubikeyData>,
+    headers: Headers,
+    conn: DbConn,
+    ip: ClientIp,
+) -> JsonResult {
+    activate_yubikey(data, headers, conn, ip).await
 }
 
-pub fn validate_yubikey_login(response: &str, twofactor_data: &str) -> EmptyResult {
+pub async fn validate_yubikey_login(response: &str, twofactor_data: &str) -> EmptyResult {
     if response.len() != 44 {
         err!("Invalid Yubikey OTP length");
     }
@@ -185,7 +202,7 @@ pub fn validate_yubikey_login(response: &str, twofactor_data: &str) -> EmptyResu
         err!("Given Yubikey is not registered");
     }
 
-    let result = verify_yubikey_otp(response.to_owned());
+    let result = verify_yubikey_otp(response.to_owned()).await;
 
     match result {
         Ok(_answer) => Ok(()),

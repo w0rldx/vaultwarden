@@ -63,6 +63,8 @@ impl Fairing for AppHeaders {
             // app.simplelogin.io, app.anonaddy.com, api.fastmail.com, quack.duckduckgo.com
             let csp = format!(
                 "default-src 'self'; \
+                base-uri 'self'; \
+                form-action 'self'; \
                 object-src 'self' blob:; \
                 script-src 'self'{script_src}; \
                 style-src 'self' 'unsafe-inline'; \
@@ -74,12 +76,12 @@ impl Fairing for AppHeaders {
                   moz-extension://* \
                   {allowed_iframe_ancestors}; \
                 img-src 'self' data: \
-                  https://haveibeenpwned.com/ \
+                  https://haveibeenpwned.com \
                   https://www.gravatar.com \
                   {icon_service_csp}; \
                 connect-src 'self' \
-                  https://api.pwnedpasswords.com/range/ \
-                  https://2fa.directory/api/ \
+                  https://api.pwnedpasswords.com \
+                  https://2fa.directory \
                   https://app.simplelogin.io/api/ \
                   https://app.anonaddy.com/api/ \
                   https://api.fastmail.com/ \
@@ -456,10 +458,13 @@ pub fn get_env_bool(key: &str) -> Option<bool> {
 
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 
+// Format used by Bitwarden API
+const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6fZ";
+
 /// Formats a UTC-offset `NaiveDateTime` in the format used by Bitwarden API
 /// responses with "date" fields (`CreationDate`, `RevisionDate`, etc.).
 pub fn format_date(dt: &NaiveDateTime) -> String {
-    dt.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string()
+    dt.format(DATETIME_FORMAT).to_string()
 }
 
 /// Formats a `DateTime<Local>` using the specified format string.
@@ -498,6 +503,10 @@ pub fn format_datetime_http(dt: &DateTime<Local>) -> String {
     // HACK: HTTP expects the date to always be GMT (UTC) rather than giving an
     // offset (which would always be 0 in UTC anyway)
     expiry_time.to_rfc2822().replace("+0000", "GMT")
+}
+
+pub fn parse_date(date: &str) -> NaiveDateTime {
+    NaiveDateTime::parse_from_str(date, DATETIME_FORMAT).unwrap()
 }
 
 //
